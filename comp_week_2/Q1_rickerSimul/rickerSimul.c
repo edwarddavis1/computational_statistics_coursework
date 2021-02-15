@@ -4,17 +4,21 @@
 
 SEXP rickerSimul(SEXP n_, SEXP nburn_, SEXP r_, SEXP y0) {
 
+    // SEXP as is to be returned 
     SEXP ys;
-    double yx;
+
+    // Declare and assign non-pointers
+    double yx;          
     int n, r, nburn;
-    double *xys;
-    
+
     n = INTEGER(n_)[0];
     ys = PROTECT(allocVector(REALSXP, n));
     yx = REAL(y0)[0];
     r = INTEGER(r_)[0];
     nburn = INTEGER(nburn_)[0];
 
+    // Pointer to ys, as SEXPs cannot be indexed
+    double *xys;
     xys = REAL(ys);
 
 

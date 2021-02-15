@@ -1,0 +1,166 @@
+---
+title: "Interfacing R with C/C++"
+author: "Ed Davis"
+date: "15/02/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+R is an easy-to-use and versatile programming language, however with it being an interpreted language, it is significantly slower than compiled languages like C. This means that for functions involving heavy computation, it is useful to be able to out-source computations to C. 
+
+## Using R's C API
+
+### Writing C functions for R's C API
+
+Consider the example of wanting to simulate population dynamics through the use of a Ricker map. Using R, a function to do this would looks something like below.
+
+```{r}
+rickerSimul <- function(n, nburn, r, y0 = 1){
+
+ y <- numeric(n)
+ yx <- y0
+ 
+ # Burn in phase
+ if(nburn > 0){
+   for(ii in 1:nburn){ 
+     yx <- r * yx * exp(-yx)
+   }
+ }
+ 
+ # Simulating and storing
+ for(ii in 1:n){
+  yx <- r * yx * exp(-yx)
+  y[ii] <- yx
+ }
+ 
+ return( y )
+}
+```
+
+We can see that this calculation uses multiple loops, meaning it is going to be significantly slower to calculate in R in comparison to C. It is possible to write R functions in C through the use of R's C API. A much faster version of the above function, written in C would be something like below.
+
+```{c, eval=FALSE}
+// rickerSimul.C script
+
+#include <R.h>
+#include <Rinternals.h>
+#include <math.h>
+
+SEXP rickerSimul(SEXP n_, SEXP nburn_, SEXP r_, SEXP y0) {
+
+    // SEXP as is to be returned 
+    SEXP ys;
+
+    // Declare and assign non-pointers
+    double yx;          
+    int n, r, nburn;
+
+    n = INTEGER(n_)[0];
+    ys = PROTECT(allocVector(REALSXP, n));
+    yx = REAL(y0)[0];
+    r = INTEGER(r_)[0];
+    nburn = INTEGER(nburn_)[0];
+
+    // Pointer to ys, as SEXPs cannot be indexed and ys is the output
+    double *xys;
+    xys = REAL(ys);
+
+
+    // Burn in phase
+    if (nburn > 0) {
+        for (int i=1; i < nburn; i++) {
+            yx = r * yx * exp(-yx);
+        }
+    }
+
+    // Simulating and storing
+    for (int i=1; i < n; i++) {
+        yx = r * yx * exp(-yx);
+        xys[i] = yx;
+    }
+
+    UNPROTECT(1);
+
+    return ys;
+}
+```
+
+To bridge the gap between C and R, we need to include some R-related functions in the C script, which is done by including `<R.h>` and `<Rinternals.h`. 
+
+Also notice that the function arguments and return are of `SEXP` type. These variable types are pointers to S expressions (pointers to objects in the R environment). This means that as R supplies the arguments and takes the return value, the variable types must be those that R can handle. Once the R variables have been pointed to, the C script creates variables of specific C types to do the calculations.  
+
+```{c, eval=FALSE}
+    double yx;          
+    int n, r, nburn;
+
+    n = INTEGER(n_)[0];
+    ys = PROTECT(allocVector(REALSXP, n));
+    yx = REAL(y0)[0];
+    r = INTEGER(r_)[0];
+    nburn = INTEGER(nburn_)[0];
+```
+
+Here, we have used macro functions, `INTEGER` and `REAL` to gain the `integer` and `double` parts of the `SEXP` variable, and they have been indexed at zero (`[0]`) to extract the value. Additionally, to avoid memory leaks, we have used the `PROTECT` function to allocate `ys` with the memory to be a `REALSXP` vector of length `n`. It is important to note that whenever the `PROTECT` macro function has been used, the memory must be freed through the use of the `UNPROTECT` macro, with its argument being the number of protect functions that have been used.  
+
+As stated before, the output of this function must be `SEXP`, and so in order to return a calculated array of `SEXP` type, a pointer must be used to point to the `SEXP` variable. Below, we see that the `xys` variable must be of C type in order to do the calculations. 
+
+```{c, eval=FALSE}
+    // Pointer to ys, as SEXPs cannot be indexed and ys is the output
+    double *xys;
+    xys = REAL(ys);
+```
+
+However, as we have declared it to point to the `double` part of `ys`, the value of `ys` will be updated with `xys`, meaning that returning `ys` in effect returns the values calculated for `xys`. 
+
+### Calling C functions from R
+
+Making sure that the current working directory is to that of the C script, the function can be compiled in R through the use of the following.
+
+```{r}
+system("R CMD SHLIB rickerSimul.C")
+```
+
+Where `SHLIB` is a mechanism to compile source code, and `rickerSimul.C` is the code we want to compile. Calling this creates a `rickerSimul.o` object and a `rickerSimul.so` shared object (note that on windows, only the .o file is created at this point). The shared object can be loaded into R using 
+
+```{r}
+dyn.load("rickerSimul.so")
+```
+
+The C function is then called using the `.Call` function.
+
+```{r}
+# Set variables
+nburn <- 100
+n <- 50
+y0_true <- 1
+sig_true <- 0.1
+r_true <- 10
+
+# Call the C function
+Ntrue = .Call("rickerSimul", as.integer(n), as.integer(nburn), as.integer(r_true), y0_true)
+
+yobs <- y0_true * exp(rnorm(n, 0, sig_true))
+plot(yobs, type = 'b')
+```
+
+Overall, we can see that using the C API creates a function which is significantly quicker than one written in R. 
+
+```{r}
+library(microbenchmark)
+
+rickerSimul_R = function() rickerSimul(as.integer(n), as.integer(nburn), as.integer(r_true), y0_true)
+
+rickerSimul_C <- function() .Call("rickerSimul", as.integer(n), as.integer(nburn), as.integer(r_true), y0_true)
+
+microbenchmark(rickerSimul_R(), rickerSimul_C(), times = 500)
+```
+
+
+
+
+
