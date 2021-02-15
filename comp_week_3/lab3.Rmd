@@ -1,0 +1,221 @@
+---
+title: "comp_week_3"
+author: "Ed Davis"
+date: "15/02/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Solar Power Data
+
+```{r}
+load("solarAU.RData")
+
+head(solarAU)
+solarAU$logprod <- log(solarAU$prod+0.01)
+
+library(ggplot2)
+library(viridis)
+ggplot(solarAU,
+       aes(x = toy, y = tod, z = logprod)) +
+       stat_summary_hex() +
+       scale_fill_gradientn(colours = viridis(50))
+```
+```{r}
+# Model matrix
+X <- with(solarAU, cbind(1, tod, tod^2, toy, toy^2))
+```
+
+## C++ function for linear regression
+```{r}
+sourceCpp(code='
+// [[Rcpp::depends(RcppArmadillo)]]
+#include <RcppArmadillo.h>
+using namespace Rcpp;
+
+// [[Rcpp::export(name="lm_cpp")]]
+arma::vec lm_cpp_I(arma::vec& y, arma::mat& X)
+{
+  arma::mat Q, R;
+  arma::qr_econ(Q, R, X);
+  arma::vec beta = solve(R, (trans(Q) * y));
+  return beta;
+}')
+ls_cpp = function(formula, data) {
+  y = data[,all.vars(formula)[1]]
+  x = model.matrix(formula, data)
+  
+  # Call C++ function
+  lm_cpp(y, x)
+}
+
+reg_formula = logprod ~ tod + I(tod^2) + toy + I(toy^2)
+
+ls_cpp(reg_formula, data = solarAU)
+
+```
+```{r}
+# Verify that the function is correct
+fit <- lm(reg_formula, data = solarAU) 
+fit
+```
+```{r}
+library(microbenchmark)
+
+
+microbenchmark(
+  R_lm = lm(reg_formula, data=solarAU),
+  C_lm = ls_cpp(reg_formula, data=solarAU),
+  times = 500
+)
+```
+
+```{r}
+library(gridExtra)
+
+solarAU$fitPoly <- fit$fitted.values
+
+pl1 <- ggplot(solarAU,
+              aes(x = toy, y = tod, z = fitPoly)) +
+       stat_summary_hex() +
+       scale_fill_gradientn(colours = viridis(50))
+
+pl2 <- ggplot(solarAU,
+              aes(x = toy, y = tod, z = logprod - fitPoly)) +
+       stat_summary_hex() +
+       scale_fill_gradientn(colours = viridis(50))
+grid.arrange(pl1, pl2, ncol = 2)
+```
+
+```{r}
+library(mvtnorm)
+lmLocal <- function(y, x0, X0, x, X, H){
+  w <- dmvnorm(x, x0, H)
+  fit <- lm(y ~ -1 + X, weights = w)
+  return( t(X0) %*% coef(fit) )
+}
+
+nrow(solarAU)
+```
+```{r}
+n <- nrow(X)
+nsub <- 2e3
+sub <- sample(1:n, nsub, replace = FALSE)
+
+y <- solarAU$logprod
+solarAU_sub <- solarAU[sub, ]
+x <- as.matrix(solarAU[c("tod", "toy")])
+x0 <- x[sub, ]
+X0 <- X[sub, ]
+```
+
+```{r}
+# Run the local regresssion for each subsampled location
+
+# Takes a while to run 
+
+# predLocal <- sapply(1:nsub, function(ii){
+#   lmLocal(y = y, x0 = x0[ii, ], X0 = X0[ii, ], x = x, X = X, H = diag(c(1, 0.1)^2))
+# })
+```
+
+```{r}
+solarAU_sub$fitLocal <- predLocal
+
+pl1 <- ggplot(solarAU_sub,
+       aes(x = toy, y = tod, z = fitLocal)) +
+       stat_summary_hex() +
+       scale_fill_gradientn(colours = viridis(50))
+
+pl2 <- ggplot(solarAU_sub,
+       aes(x = toy, y = tod, z = logprod - fitLocal)) +
+       stat_summary_hex() +
+       scale_fill_gradientn(colours = viridis(50))
+
+grid.arrange(pl1, pl2, ncol = 2)
+```
+
+
+```{r}
+sourceCpp(code = '
+ // [[Rcpp::depends(RcppArmadillo)]]
+ #include <RcppArmadillo.h>
+ using namespace Rcpp;
+ 
+ arma::vec local_lm(vec& y, rowvec X0, rowvec X0, mat& x, mat& X, mat& H) 
+ {
+    mat H_lower_tri = arma::chol(H, "lower");
+ }
+
+ // [[Rcpp::export(name = "local_ls_cpp")]]
+
+}')
+```
+
+
+
+```{r}
+# Takes lower triangular factor of the Cholesky decomposition of the covariance matrix as input
+
+sourceCpp(code = '
+// [[Rcpp::depends(RcppArmadillo)]]
+#include <RcppArmadillo.h>
+using namespace arma;
+
+vec dmvnInt(mat & X, const rowvec & mu, mat & L)
+{
+  unsigned int d = X.n_cols;
+  unsigned int m = X.n_rows;
+  
+  vec D = L.diag();
+  vec out(m);
+  vec z(d);
+  
+  double acc;
+  unsigned int icol, irow, ii;
+  for(icol = 0; icol < m; icol++)
+  {
+    for(irow = 0; irow < d; irow++)
+    {
+     acc = 0.0;
+     for(ii = 0; ii < irow; ii++) acc += z.at(ii) * L.at(irow, ii);
+     z.at(irow) = ( X.at(icol, irow) - mu.at(irow) - acc ) / D.at(irow);
+    }
+    out.at(icol) = sum(square(z));
+  }
+
+  out = exp( - 0.5 * out - ( (d / 2.0) * log(2.0 * M_PI) + sum(log(D)) ) );
+
+  return out;
+}
+
+// [[Rcpp::export(name = "kdeArma")]]
+Rcpp::NumericVector kde_i(mat& y, mat& x, mat& H) {
+  unsigned int n = x.n_rows;
+  unsigned int m = y.n_rows;
+  vec out(m, fill::zeros);
+  mat cholDec = chol(H, "lower");
+  for(int ii = 0; ii < n; ii++){
+   out += dmvnInt(y, x.row(ii), cholDec);
+  }
+  out /= n;
+  return Rcpp::wrap(out);
+}')
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
