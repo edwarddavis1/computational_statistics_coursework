@@ -163,7 +163,7 @@ microbenchmark(rickerSimul_R(), rickerSimul_C(), times = 500)
 
 ## Rcpp via `sourceCpp()`
 
-(Note that unlike R's C API, the code in this section also runs on Windows)
+(Note that unlike R's C API, the using `sourceCpp()` also runs on Windows)
 
 The `sourceCpp()` function in the Rcpp package allows for C++ code to be written without using `SEXP` variables, meaning that the code can no longer be called using the `.Call()` function. `sourceCpp()` will compiler such a script and load the corresponding dynamic library in R. For example:
 
@@ -209,7 +209,9 @@ y = c(3, 4)
 vsum(x, y)
 ```
 
-While it is preferred that C++ code is in its own `.cpp` file (and called using `sourceCpp("example.cpp")`), we have seen that C++ can be written inline from using the `code` argument of `sourceCpp()`. This inline code can be shortened using the `cppFunction()` function.
+## Inline C++
+
+While it is preferred that C++ code is in its own `.cpp` file (and called using `sourceCpp("example.cpp")`), we have seen that C++ can be written inline from using the `code` argument of `sourceCpp()`. This inline code can be shortened using the `cppFunction()` function. (Note that this does not run on windows).
 
 ```{r}
 cppFunction('
@@ -220,10 +222,14 @@ int fiboInline2(const int x) {
   return (fiboInline2(x-1)) + fiboInline2(x-2);
 }
 ')
-
+fiboInline2(6)
 ```
 
+Additionally, for very short C++ code, `evalCpp` can be used.
 
+```{r}
+evalCpp( "std::numeric_limits<double>::max()" )
+````
 
 
 
