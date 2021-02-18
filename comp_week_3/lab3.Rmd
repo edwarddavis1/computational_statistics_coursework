@@ -343,6 +343,31 @@ vec local_lm_fit_I(vec& y, mat x0, mat X0, mat& x, mat& X, mat& H)
 ```
 
 
+```{r}
+library(Rcpp)
+sourceCpp(code = '
+#include <Rcpp.h>
+
+// [[Rcpp::export(name = "vsum")]]
+Rcpp::NumericVector vsum_I(const Rcpp::NumericVector x1, const Rcpp::NumericVector x2)
+{
+  int ni = x1.size();
+  Rcpp::NumericVector out(ni);
+  
+  for(int ii = 0; ii < ni; ii++){
+    out[ii] = x1[ii] + x2[ii];
+  }
+  
+  return out;
+}')
+
+d <- 1e5
+x1 <- rnorm(d)
+x2 <- rnorm(d)
+y <- vsum(x1, x2)
+
+max( abs(y - (x1+x2)) )
+```
 
 
 
