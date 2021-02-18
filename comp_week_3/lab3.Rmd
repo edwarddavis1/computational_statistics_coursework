@@ -143,16 +143,71 @@ grid.arrange(pl1, pl2, ncol = 2)
 sourceCpp(code = '
  // [[Rcpp::depends(RcppArmadillo)]]
  #include <RcppArmadillo.h>
- using namespace Rcpp;
  
- arma::vec local_lm(vec& y, rowvec X0, rowvec X0, mat& x, mat& X, mat& H) 
+ using namespace Rcpp;
+ using namespace arma;
+ 
+ 
+ vec dmvnInt(mat & X, const rowvec & mu, mat & L)
+{
+  unsigned int d = X.n_cols;
+  unsigned int m = X.n_rows;
+  
+  vec D = L.diag();
+  vec out(m);
+  vec z(d);
+  
+  double acc;
+  unsigned int icol, irow, ii;
+  for(icol = 0; icol < m; icol++)
+  {
+    for(irow = 0; irow < d; irow++)
+    {
+     acc = 0.0;
+     for(ii = 0; ii < irow; ii++) acc += z.at(ii) * L.at(irow, ii);
+     z.at(irow) = ( X.at(icol, irow) - mu.at(irow) - acc ) / D.at(irow);
+    }
+    out.at(icol) = sum(square(z));
+  }
+
+  out = exp( - 0.5 * out - ( (d / 2.0) * log(2.0 * M_PI) + sum(log(D)) ) );
+
+  return out;
+}
+ 
+ // [[Rcpp::export(name="lm_cpp")]]
+ arma::vec lm_cpp_I(vec& y, mat& X)
  {
-    mat H_lower_tri = arma::chol(H, "lower");
+   mat Q, R;
+   qr_econ(Q, R, X);
+   vec beta = solve(R, (trans(Q) * y));
+   return beta;
+ }
+   
+ vec local_lm_I(vec& y, rowvec X0, rowvec X0, mat& x, mat& X, mat& H) 
+ {
+    // Use Gaussian kernel to get weights
+    mat H_lower_tri = chol(H, "lower");
+    vec w = dmvn(x, x0, H_lower_tri);
+    
+    // local least squares
+    vec beta = lm_cpp_I(y % sqrt(w), X.each_col() % sqrt(w));
+    return X0 * beta;
  }
 
  // [[Rcpp::export(name = "local_ls_cpp")]]
+ vec pred_local_I(vec &y, mat x0, mat X0, mat& X, mat& H) 
+ {
+    vec local_preds(x0.n_rows);
+    for (int i{0}; i < x0.n_rows; i++) {
+      rowvec x0_row = x0.row(i);
+      rowvec X0_row = X0.row(i);
+      // local_preds(i)
+    }
+ }
 
 }')
+
 ```
 
 
@@ -214,6 +269,78 @@ Rcpp::NumericVector kde_i(mat& y, mat& x, mat& H) {
 
 
 
+```{r}
+# STOLEN!!!
+
+sourceCpp(code = '
+ // [[Rcpp::depends(RcppArmadillo)]]
+ #include <RcppArmadillo.h>
+ 
+ using namespace Rcpp;
+ using namespace arma;
+ 
+ 
+ vec dmvnInt(mat & X, const rowvec & mu, mat & L)
+{
+  unsigned int d = X.n_cols;
+  unsigned int m = X.n_rows;
+  
+  vec D = L.diag();
+  vec out(m);
+  vec z(d);
+  
+  double acc;
+  unsigned int icol, irow, ii;
+  for(icol = 0; icol < m; icol++)
+  {
+    for(irow = 0; irow < d; irow++)
+    {
+     acc = 0.0;
+     for(ii = 0; ii < irow; ii++) acc += z.at(ii) * L.at(irow, ii);
+     z.at(irow) = ( X.at(icol, irow) - mu.at(irow) - acc ) / D.at(irow);
+    }
+    out.at(icol) = sum(square(z));
+  }
+
+  out = exp( - 0.5 * out - ( (d / 2.0) * log(2.0 * M_PI) + sum(log(D)) ) );
+
+  return out;
+}
+ 
+ // [[Rcpp::export(name="lm_cpp")]]
+ arma::vec lm_cpp_I(vec& y, mat& X)
+ {
+   mat Q, R;
+   qr_econ(Q, R, X);
+   vec beta = solve(R, (trans(Q) * y));
+   return beta;
+ }
+   
+vec local_lm_I(vec& y, rowvec x0, rowvec X0, mat& x, mat& X, mat& H)
+{
+  mat Hstar = chol(H, "lower"); 
+  vec w = dmvnInt(x, x0, Hstar);
+  vec beta = lm_cpp_I(y % sqrt(w), X.each_col() % sqrt(w));
+  return X0 * beta;
+}
+
+// [[Rcpp::export(name="local_lm_fit")]]
+vec local_lm_fit_I(vec& y, mat x0, mat X0, mat& x, mat& X, mat& H)
+{
+  int n0 = x0.n_rows;
+  vec out(n0);
+  for(int ii=0; ii < n0; ii++)
+  {
+    rowvec x00 = x0.row(ii);
+    rowvec X00 = X0.row(ii);
+    out(ii) = as_scalar(local_lm_I(y, x00, X00, x, X, H));
+    if(ii % 50 == 0) {R_CheckUserInterrupt();}
+  }
+  return out;
+}
+
+}')
+```
 
 
 
