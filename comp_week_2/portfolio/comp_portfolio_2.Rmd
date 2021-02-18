@@ -229,15 +229,7 @@ Additionally, for very short C++ code, `evalCpp` can be used.
 
 ```{r}
 evalCpp( "std::numeric_limits<double>::max()" )
-````
-
-
-
-
-
-
-
-
+```
 
 
 
