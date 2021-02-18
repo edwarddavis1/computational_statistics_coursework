@@ -1,5 +1,5 @@
 ---
-title: "Interfacing R with C/C++"
+title: "Integrating R and C"
 author: "Ed Davis"
 date: "15/02/2021"
 output: pdf_document
