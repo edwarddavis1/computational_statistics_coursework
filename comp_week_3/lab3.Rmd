@@ -31,6 +31,7 @@ X <- with(solarAU, cbind(1, tod, tod^2, toy, toy^2))
 
 ## C++ function for linear regression
 ```{r}
+library(RcppArmadillo)
 sourceCpp(code='
 // [[Rcpp::depends(RcppArmadillo)]]
 #include <RcppArmadillo.h>
@@ -72,6 +73,9 @@ microbenchmark(
   times = 500
 )
 ```
+
+
+
 
 ```{r}
 library(gridExtra)

@@ -1,0 +1,163 @@
+---
+title: "Advanced R and C"
+author: "Ed Davis"
+date: "18/02/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Rcpp sugar
+
+`Rcpp sugar` allows for simplification of `C++` code such that it is more similar to the syntax of `R`, while often maintaining a boost in computational speed. 
+
+### Binary Arithmetic Operators
+
+In the following, we see that writing a function to add vectors in standard `Rcpp` involves a lot more code in comparison to one written exploiting `Rcpp sugar`. We see that in the latter, the `+` operator has been overloaded such that variables of type `Rcpp::NumericVector` can be added. 
+
+```{r}
+# Example: Standard Rcpp
+
+library(Rcpp)
+sourceCpp(code = '
+#include <Rcpp.h>
+
+// [[Rcpp::export(name = "vsum")]]
+Rcpp::NumericVector vsum_I(const Rcpp::NumericVector x1, const Rcpp::NumericVector x2)
+{
+  int ni = x1.size();
+  Rcpp::NumericVector out(ni);
+  
+  for(int ii = 0; ii < ni; ii++){
+    out[ii] = x1[ii] + x2[ii];
+  }
+  
+  return out;
+}')
+
+vsum(c(1,2), c(3,4))
+```
+
+
+```{r}
+# Example: Rcpp sugar
+
+sourceCpp(code = '
+#include <Rcpp.h>
+
+// [[Rcpp::export(name = "vsumVett")]]
+Rcpp::NumericVector vsum_I(const Rcpp::NumericVector x1, const Rcpp::NumericVector x2)
+{
+  return x1 + x2;
+}')
+
+vsumVett(c(1,2), c(3,4))
+```
+
+Due to `Rcpp sugar`, the arithmetic operators `+`, `-`, `*`, `/` are each overloaded for `Rcpp::NumericVector` vector-vector or vector-scalar combinations. However, as the arithmetic operators in `R` are written with `C` or `C++`, in this simple example, `R` will be the quickest.  
+
+```{r}
+d <- 1e2
+x1 <- rnorm(d)
+x2 <- rnorm(d)
+
+library(microbenchmark)
+microbenchmark(R = x1 + x2, Rcpp = vsum(x1, x2), RcppSugar = vsumVett(x1, x2))
+```
+
+
+### Binary Logical Operators
+
+Similar to the arithmetic operators, `Rcpp sugar` also has overloads of the logical operators, `<`, `>`, `=`, such that a `logical` sugar expression can be created from comparisons between two sugar expressions or a sugar expression with a primitive value of acceptable type.
+
+```{r}
+# Example: < operator 
+sourceCpp(code = '
+  #include <Rcpp.h>
+  
+  // [[Rcpp::export(name = "is_positive")]]
+  Rcpp::LogicalVector is_positive_I(Rcpp::NumericVector num) 
+  {
+    return num > 0;
+  }
+')
+
+is_positive(5)
+is_positive(-5)
+
+# Example: = operator
+sourceCpp(code = '
+  #include <Rcpp.h>
+  
+  // [[Rcpp::export(name = "is_equal")]]
+  Rcpp::LogicalVector is_equal_I(Rcpp::NumericVector num1, Rcpp::NumericVector num2)
+  {
+  return num1 == num2;
+  }
+')
+
+is_equal(5, 5)
+is_equal(5,6)
+
+```
+
+
+### Rcpp versions of R functions
+
+Operations, functions and distributions that are found in `R` can also be accessed through `Rcpp sugar`, with a full list of the functions [here](http://thecoatlessprofessor.com/programming/cpp/unofficial-rcpp-api-documentation/#sugar). 
+
+
+## RcppArmadillo
+
+The `RcppArmadillo` package allows `Rcpp` to use the linear algebra library, `Armadillo` from C++. This allows for faster linear algebra calculations when compared to `R`. 
+
+As an example, in standard `Rcpp`, the `*` operator combines two `NumericMatrix` type variables as an element-wise multiplication (as `as.vector(a * b)`), and not a matrix product (as `a %*% b`). To compute the matrix product, we can use `RcppArmadillo`, which has a `mat` variable under the namespace `arma`. The `*` operator for these types of variables compute the matrix product. 
+
+```{r}
+library(RcppArmadillo)
+sourceCpp(code='
+  // [[Rcpp::depends(RcppArmadillo)]]
+  #include <RcppArmadillo.h>
+  using namespace Rcpp;
+  
+  // [[Rcpp::export(name = "MMv_std)]]
+  NumericMatrix MMv_std_I(NumericMatrix A, NumericMatrix B) {
+    return A * B;
+  }
+')
+
+sourceCpp(code ='
+  // [[Rcpp::depends(RcppArmadillo)]]
+  #include <RcppArmadillo.h>
+  using namespace Rcpp;
+  // [[Rcpp::export(name = "MMv_arma)]]
+  arma::vec MMv_arma_I(arma::mat& A, arma::mat& B) {
+    return A * B;
+  }
+')
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
