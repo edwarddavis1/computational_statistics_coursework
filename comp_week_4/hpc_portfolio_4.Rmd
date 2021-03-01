@@ -137,16 +137,81 @@ echo End Time: $(date)
 
 `#PBS` denotes a directive for the queuing system; here the script has requested that a single core, `ncpus-1`, one compute node, `select=1` and 100Mb of memory, `mem=100M` is required for the job. In the second line, the job script says it is estimated that the job will take 10 seconds, `walltime=0:0:10`. 
 
+Additionally, this job script prints out useful information in the output script in order to keep track of the job ID and other information. 
+
+### Compiling C code
+
+To compile C code, we need to load the required module and then use the `icc` command to compile the code. 
+
+```{}
+module load lang/intel-parallel-studio-xe
+icc hello.c -o hello
+./hello
+
+Hello, World!
+```
+
+### Parallel Hello World
+
+```{}
+module add lang/intel-parallel-studio-xe/2020
+mpiicc hello.mpi.c -o hello.mpi
+```
 
 
+### Array Jobs Scripts 
+
+The following script is an example array job script.
+
+```{}
+#!/bin/env bash
+#
+#
+#PBS -l select=1:ncpus=1
+#PBS -l walltime=00:10:00
+#PBS -J 1-5
 
 
+# Define executable
+export EXE=/bin/hostname
 
+# Change into working directory
+cd ${PBS_O_WORKDIR}
 
+# Do some stuff
+echo JOB ID: ${PBS_JOBID}
+echo PBS ARRAY ID: ${PBS_ARRAY_INDEX}
+echo Working Directory: $(pwd)
 
+echo Start Time: $(date)
+# Execute code
+${EXE}
 
+echo End Time: $(date)
+```
 
+As shown by the line `#PBS -J 1-5`, the script will be run 5 times. To keep track of this, the line, `echo PBS ARRAY ID: ${PBS_ARRAY_INDEX}` prints which run (1-5) the script is on.
 
+When the array job script is run, the job id number has `[]` at the end to show that there are multiple elements.
+
+```{}
+[train01@newblue1 workshop]$ qsub job.array.sh
+331708[].bp1
+```
+
+To view each of the elements, the following command can be used.
+
+```{}
+[zu18506@bp1-login01 workshop]$ qstat -t 331708[]
+Job id            Name             User              Time Use S Queue
+----------------  ---------------- ----------------  -------- - -----
+331708[].bp1      job.array.sh     zu18506                  0 B short
+331708[1].bp1     job.array.sh     zu18506           00:00:00 R short
+331708[2].bp1     job.array.sh     zu18506           00:00:00 R short
+331708[3].bp1     job.array.sh     zu18506           00:00:00 R short
+331708[4].bp1     job.array.sh     zu18506           00:00:00 R short
+331708[5].bp1     job.array.sh     zu18506           00:00:00 R short
+```
 
 
 
