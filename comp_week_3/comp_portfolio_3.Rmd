@@ -116,32 +116,128 @@ The `RcppArmadillo` package allows `Rcpp` to use the linear algebra library, `Ar
 As an example, in standard `Rcpp`, the `*` operator combines two `NumericMatrix` type variables as an element-wise multiplication (as `as.vector(a * b)`), and not a matrix product (as `a %*% b`). To compute the matrix product, we can use `RcppArmadillo`, which has a `mat` variable under the namespace `arma`. The `*` operator for these types of variables compute the matrix product. 
 
 ```{r}
-library(RcppArmadillo)
+# Example: Multiplying matrices
+
+library(Rcpp)
 sourceCpp(code='
-  // [[Rcpp::depends(RcppArmadillo)]]
-  #include <RcppArmadillo.h>
+  #include <Rcpp.h>
   using namespace Rcpp;
   
-  // [[Rcpp::export(name = "MMv_std)]]
-  NumericMatrix MMv_std_I(NumericMatrix A, NumericMatrix B) {
+  // [[Rcpp::export(name = "MMv_std")]]
+  NumericVector MMv_std_I(NumericMatrix A, NumericMatrix B) {
     return A * B;
-  }
-')
+  }'
+)
 
+library(RcppArmadillo)
 sourceCpp(code ='
   // [[Rcpp::depends(RcppArmadillo)]]
   #include <RcppArmadillo.h>
   using namespace Rcpp;
-  // [[Rcpp::export(name = "MMv_arma)]]
-  arma::vec MMv_arma_I(arma::mat& A, arma::mat& B) {
+
+  // [[Rcpp::export(name = "MMv_arma")]]
+  arma::mat MMv_arma_I(arma::mat& A, arma::mat& B) {
     return A * B;
-  }
-')
+  }'
+)
+
+A = matrix(c(1,2,3,4), byrow=TRUE, nrow=2)
+B = matrix(c(5,6,7,8), byrow=TRUE, nrow=2)
+
+# R code 
+A %*% B
+
+# Rcpp
+MMv_std(A, B)
+
+# RcppArmadillo
+MMv_arma(A, B)
+```
+
+<!-- YOU SHOULD CHANGE THIS TO A %*% B %*% Y! -->
+
+In addition to this, `RcppArmadillo` computes these matrix products significantly faster than in `R`.
+
+```{r}
+# Example: RcppArmadillo speed vs R
+
+library(microbenchmark)
+
+# Large matrices
+d <- 1000
+A <- matrix(rnorm(d^2), d, d)
+B <- matrix(rnorm(d^2), d, d)
+
+microbenchmark(R = A %*% B, Arma = MMv_arma(A, B))
 ```
 
 
+## Example using RcppArmadillo
+
+### Solar Power Data
+
+```{r}
+load("solarAU.RData")
+
+head(solarAU)
+solarAU$logprod <- log(solarAU$prod+0.01)
+
+library(ggplot2)
+library(viridis)
+ggplot(solarAU,
+       aes(x = toy, y = tod, z = logprod)) +
+       stat_summary_hex() +
+       scale_fill_gradientn(colours = viridis(50))
+```
+```{r}
+# Model matrix
+X <- with(solarAU, cbind(1, tod, tod^2, toy, toy^2))
+```
+
+### C++ function for linear regression
+```{r}
+library(RcppArmadillo)
+sourceCpp(code='
+// [[Rcpp::depends(RcppArmadillo)]]
+#include <RcppArmadillo.h>
+using namespace Rcpp;
+
+// [[Rcpp::export(name="lm_cpp")]]
+arma::vec lm_cpp_I(arma::vec& y, arma::mat& X)
+{
+  arma::mat Q, R;
+  arma::qr_econ(Q, R, X);
+  arma::vec beta = solve(R, (trans(Q) * y));
+  return beta;
+}')
+ls_cpp = function(formula, data) {
+  y = data[,all.vars(formula)[1]]
+  x = model.matrix(formula, data)
+  
+  # Call C++ function
+  lm_cpp(y, x)
+}
+
+reg_formula = logprod ~ tod + I(tod^2) + toy + I(toy^2)
+
+ls_cpp(reg_formula, data = solarAU)
+
+```
+```{r}
+# Verify that the function is correct
+fit <- lm(reg_formula, data = solarAU) 
+fit
+```
+```{r}
+library(microbenchmark)
 
 
+microbenchmark(
+  R_lm = lm(reg_formula, data=solarAU),
+  C_lm = ls_cpp(reg_formula, data=solarAU),
+  times = 500
+)
+```
 
 
 

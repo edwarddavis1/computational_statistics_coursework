@@ -1,0 +1,171 @@
+---
+title: 'Computing Portfolio 4: HPC'
+author: "Ed Davis"
+date: "01/03/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+High performance computing (HPC) systems provide a great deal of power and data processing to aid most scientific fields. HPC systems are often called supercomputers. 
+
+### Generic System Layout
+
+ACRC HPC systems consist of compute nodes, which run the jobs, and login nodes which allows users to connect and upload and store data. 
+
+### Types of Jobs
+
+- Serial Code: single processor jobs
+
+- Parallel Code: multiple processors per node
+
+### Types of Parallelism
+
+- Message Passing Interface (MPI) (Distributed Memory): MPI code can run in parallel across multiple compute notes. 
+
+- OpenMP (Shared Memory): Can run in parallel on a single compute node.
+
+- CUDA, OpenCL (GPU Accelerators): Run in parallel on GPU and/or CPUs. 
+
+## Using the System
+
+### Modules
+
+- `module avail`: list all modules.
+- `module add <module-name>`: Add module to environment.
+- `module del <module-name>`: Remove module from environment. 
+- `module list`: List all the added modules
+
+Modules always reset every time you log out. 
+
+### Storage
+
+Have both a `HOME` and `WORK` directory. The `HOME` directory has 20 GB of storage, used for scripts and application settings, and a `WORK` directory which has 1 TB of storage, meaning this is where datasets will go. The `HOME` directory is not backed up and so must be backed up elsewhere. The command, `quota -s`, shows how much space left 
+
+### Queuing System
+
+The user needs to create a job script to run their code on the computer. A job script contains the commands necessary for the job and any dependencies. The queuing system finds the required resources and copies the job script to the compute nodes and runs the job when available. 
+
+
+## Job Scripts 
+
+Script starts with a "shebang": `#!/bin/bash` to say that the script is a bash script. An example job script is below. 
+
+```{}
+#!/bin/bash
+#
+#
+
+# Change into working directory
+cd ~/workshop
+
+# Execute code
+/bin/hostname
+
+# Pause to give us time to see the job
+sleep 60
+```
+
+### Common Commands
+
+To run a job script, submit it using `qsub <job_script/sh>`, which will then return a job ID number (e.g. 123456.bp1) and then the command `qstat 123456` can be used to monitor how the job is running.
+
+- `qsub <job_script>`: Submits a job to run.
+- `qstat <job_id_number>`: Checks the job in queue.
+- `qstat -u <job_id_number>`: Checks all jobs in queue for user.
+- `qstat -an1 <job_id_number>`:  Tells which node(s) the job is running on while it runs. 
+- `qdel <job_id_number>`: Deletes a job.
+
+An example procedure. 
+```{}
+[zu18506@bp1-login01 workshop]$ qsub job1.sh
+327582.bp1
+[zu18506@bp1-login01 workshop]$ qstat 330418
+Job id            Name             User              Time Use S Queue
+----------------  ---------------- ----------------  -------- - -----
+330418.bp1        job1.sh          zu18506           00:00:00 R short
+```
+
+In the `qstat` output, the column, `S`, stands for state. In this column it will either show an `R` to indicate the job is running, `Q` for queuing, `E` for exiting, and `C` for completing. For more details on `qstat` run `man qstat`. Note that after a job has finished, the `qstat` will return `Unknown Job Id <job_id_number>.bp1`. 
+
+After running a job, two output files will be creates called `<job_name>.sh.o<job_id_number>` and `<job_name>.sh.e<job_id_number>`, for showing the output and errors respectively. An example output file is shown below. 
+
+```{}
+[zu18506@bp1-login01 workshop]$ cat job1.sh.o327582
+
+University of Bristol ACRC HPC Bluepebble Service
+-------------------------------------------------
+Job job1.sh, jobid 327582.bp1, username zu18506 - started execution at 14 :12:19 Mon 08/24/20 on node bp1-01-04-01.data.bp.acrc.priv
+
+bp1-01-04-01.data.bp.acrc.priv
+```
+
+### Template Script
+
+A template job script would be like the one below.
+
+```{}
+#!/bin/bash
+#
+#
+#PBS -l select=1:ncpus=1:mem=100M
+#PBS -l walltime=0:0:10
+
+# Define executable
+export EXE=/bin/hostname
+
+# Change into working directory
+cd ${PBS_O_WORKDIR}
+
+# Do some stuff
+
+echo JOB ID: ${PBS_JOBID}
+
+echo Working Directory: $(pwd)
+
+echo Start Time: $(date)
+
+# Execute code
+${EXE}
+
+echo End Time: $(date)
+```
+
+`#PBS` denotes a directive for the queuing system; here the script has requested that a single core, `ncpus-1`, one compute node, `select=1` and 100Mb of memory, `mem=100M` is required for the job. In the second line, the job script says it is estimated that the job will take 10 seconds, `walltime=0:0:10`. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
