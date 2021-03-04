@@ -1,0 +1,18 @@
+---
+title: 'Portfolio 3: Introduction to Linux'
+author: "Ed Davis"
+date: "04/03/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+### Directories
+
+Using the terminal, you can navigate directories (i.e. folders) through the use of the `cd` (change directory) command. 
+
+
+

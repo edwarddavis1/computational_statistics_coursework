@@ -151,12 +151,12 @@ icc hello.c -o hello
 Hello, World!
 ```
 
-### Parallel Hello World
+<!-- ### Parallel Hello World -->
 
-```{}
-module add lang/intel-parallel-studio-xe/2020
-mpiicc hello.mpi.c -o hello.mpi
-```
+<!-- ```{} -->
+<!-- module add lang/intel-parallel-studio-xe/2020 -->
+<!-- mpiicc hello.mpi.c -o hello.mpi -->
+<!-- ``` -->
 
 
 ### Array Jobs Scripts 
