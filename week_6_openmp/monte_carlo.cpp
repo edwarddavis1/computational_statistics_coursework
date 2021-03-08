@@ -2,6 +2,7 @@
 #include <cstdlib>
 #include <iostream>
 
+// Random number between 0 and 1
 double rand_one()
 {
     return std::rand() / (RAND_MAX + 1.0);
@@ -9,6 +10,7 @@ double rand_one()
 
 int main(int argc, const char **argv)
 {
+    // n inside and outside circle
     int n_inside = 0;
     int n_outside = 0;
 
@@ -17,6 +19,7 @@ int main(int argc, const char **argv)
         int pvt_n_inside = 0;
         int pvt_n_outside = 0;
 
+        // Define parallel loop
         #pragma omp for
         for (int i=0; i<10000000; ++i)
         {
@@ -35,6 +38,7 @@ int main(int argc, const char **argv)
             }
         }
 
+        // Critical section to make sure that each evaluation is added correctly
         #pragma omp critical
         {
             n_inside += pvt_n_inside;

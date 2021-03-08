@@ -163,10 +163,34 @@ Up to now, threads running in parallel have not been working together, e.g. each
 
 A `critical` section of the code (with the `critical` pragma) is one which is performed by all threads in the team, but is only performed by a single thread at a time. This allows for each thread to update a global variable with the local result calculated by the thread, without worrying about other threads updating the variable at the same time. These `critical` sections are important for guaranteeing reproducibility and reliability. 
 
-
 ## Reduction
 
-Reduction is the process of combining or reducing the results of many sub-calculations into a single, reduced, result.
+Reduction is the process of combining or reducing the results of many sub-calculations into a single, reduced, result. Reduction requires the use of a critical section in order to keep track of some global result. For example, calculating iterations of a loop in parallel and using a critical section to update a global variable is an example of reduction. Generally, reduction is complicated to implement to be both work well and be efficient. To solve this, OpenMP provides a `reduction` directive, which has the following syntax.
+
+```{cpp}
+reduction( operator : variable list )
+```
+
+The following code, for example, will tell the compiler that `sum` will hold the global result of a reduction which will be formed by adding together the results of the thread-private calculations.
+
+```{cpp}
+reduction( + : sum )
+```
+
+
+## Map / Reduce 
+
+.
+.
+.
+
+
+
+
+
+
+
+
 
 
 
