@@ -161,17 +161,12 @@ for eight threads. We can see that using the `for` pragma, each of the threads c
 
 Up to now, threads running in parallel have not been working together, e.g. each thread is aware of how many iterations of a loop it has done but no idea about the number of total iterations done by them all. 
 
-A `critical` section of the code (with the `critical` pragma) is one which is performed by all threads in the team, but is only performed by a single thread at a time. This allows for each thread to update a global variable with the local result calculated by the thread, without worrying about other threads updating the variable at the same time. 
-
-These `critical` sections are important for guaranteeing reproducibility and reliability. 
-
-<!-- MAKE SURE TO WRITE THIS SECTION! -->
-.
-.
-.
+A `critical` section of the code (with the `critical` pragma) is one which is performed by all threads in the team, but is only performed by a single thread at a time. This allows for each thread to update a global variable with the local result calculated by the thread, without worrying about other threads updating the variable at the same time. These `critical` sections are important for guaranteeing reproducibility and reliability. 
 
 
+## Reduction
 
+Reduction is the process of combining or reducing the results of many sub-calculations into a single, reduced, result.
 
 
 
