@@ -104,6 +104,76 @@ Thread 2 says "Lift off!"
 
 But other terminals such as Mac and Linux make sure that the threads do not interrupt. 
 
+## Loops 
+
+Running iterations of a loop in parallel is difficult to scale as you can only run as many threads as there are functions to be run and if there are more threads than functions, surplus threads will be idle. In addition, if functions take different amounts of time to run, then it could lead to iterations completing in different orders. 
+
+The following is a simple program that calculates a loop in parallel.
+
+```{cpp}
+#include <iostream>
+
+#ifdef _OPENMP
+    #include <omp.h>
+#else
+    #define omp_get_thread_num() 0
+#endif
+
+int main(int argc, const char **argv)
+{
+    #pragma omp parallel
+    {
+        int nloops = 0;
+
+        #pragma omp for
+        for (int i=0; i<1000; ++i)
+        {
+            ++nloops;
+        }
+
+        int thread_id = omp_get_thread_num();
+
+        std::cout << "Thread " << thread_id << " performed "
+                  << nloops << " iterations of the loop.\n";
+    }
+
+    return 0;
+}
+```
+
+The output for this program will be 
+
+```{}
+Thread Thread 2 performed 125 iterations of the loop.
+Thread 7 performed 125 iterations of the loop.
+Thread 5 performed 125 iterations of the loop.
+Thread 6 performed 125 iterations of the loop.
+Thread 3 performed 125 iterations of the loop.
+0 performed 125 iterations of the loop.
+Thread 4 performed 125 iterations of the loop.
+Thread 1 performed 125 iterations of the loop.
+```
+
+for eight threads. We can see that using the `for` pragma, each of the threads calculated the same amount of iterations in the loop. It is important to note that this will only work if each iteration of the loop is independent, meaning that the order in which the iterations are calculated does not affect the result of the program and each iteration does not affect another. For this program the number of iterations is 1000; if 1500 threads were used, 500 would be left idle. 
+
+
+## Critical Code
+
+Up to now, threads running in parallel have not been working together, e.g. each thread is aware of how many iterations of a loop it has done but no idea about the number of total iterations done by them all. 
+
+A `critical` section of the code (with the `critical` pragma) is one which is performed by all threads in the team, but is only performed by a single thread at a time. This allows for each thread to update a global variable with the local result calculated by the thread, without worrying about other threads updating the variable at the same time. 
+
+These `critical` sections are important for guaranteeing reproducibility and reliability. 
+
+<!-- MAKE SURE TO WRITE THIS SECTION! -->
+.
+.
+.
+
+
+
+
+
 
 
 
