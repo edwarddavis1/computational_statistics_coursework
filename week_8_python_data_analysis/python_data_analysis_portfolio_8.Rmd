@@ -1,0 +1,32 @@
+---
+title: "Introduction to Data Analysis in Python"
+author: "Ed Davis"
+date: "25/03/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Data Analysis in Python
+
+## Pandas
+
+Pandas is a python module for data handling and analysis, with it's explicit aim to handle missing data in an elegant way. 
+
+```{python}
+import pandas as pd
+
+rain = pandas.read_csv("https://milliams.com/courses/data_analysis_python/rain.csv")
+
+
+```
+
+
+
+
+
+
+
+
