@@ -1,0 +1,144 @@
+---
+title: "SC2 RcppPArallel"
+author: "Ed Davis"
+date: "26/04/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Setup 
+
+```{r}
+library(electBook)
+data(Irish)
+```
+
+
+```{r}
+y <- do.call("c", Irish$indCons)
+y <- y - mean(y)
+```
+
+```{r}
+ncust <- ncol(Irish$indCons) 
+
+x <- rep(Irish$extra$tod, ncust)
+
+n <- length(x)
+ss <- sample(1:n, 1e4)
+plot(x[ss], y[ss], col = "grey")
+```
+
+## Univariate Regression
+
+```{r}
+# R function for univariate regression
+reg1D <- function(y, x){
+  b <- t(x) %*% y / (t(x) %*% x)  
+  return(b)
+}
+
+# Plot
+ss <- sort( sample(1:n, 1e4) )
+plot(x[ss], y[ss], col = "grey")
+abline(a = 0, b = reg1D(y, x), col = 2, lwd = 2)
+```
+
+```{r}
+# RcppParallel function for univariate regression
+library(Rcpp)
+
+sourceCpp(code = '
+#include <Rcpp.h>
+#include <RcppParallel.h>
+using namespace RcppParallel;
+
+struct InnerProduct : public Worker
+{
+   // source vectors
+   const RVector<double> x;
+   const RVector<double> y;
+
+   // product that I have accumulated
+   double product;
+
+   // constructors
+   InnerProduct(const NumericVector x, const NumericVector y)
+      : x(x), y(y), product(0) {}
+   InnerProduct(const InnerProduct& innerProduct, Split)
+      : x(innerProduct.x), y(innerProduct.y), product(0) {}
+
+   void operator()(std::size_t begin, std::size_t end) {
+      product += std::inner_product(x.begin() + begin,
+                                    x.begin() + end,
+                                    y.begin() + begin,
+                                    0.0);
+   }
+
+   // join my value with that of another InnerProduct
+   void join(const InnerProduct& rhs) {
+     product += rhs.product;
+   }
+};
+
+// [[Rcpp::export]]
+double parallelInnerProduct(NumericVector x, NumericVector y) {
+
+   // declare the InnerProduct instance that takes a pointer to the vector data
+   InnerProduct innerProduct(x, y);
+
+   // call paralleReduce to start the work
+   parallelReduce(0, x.length(), innerProduct);
+
+   // return the computed product
+   return innerProduct.product;
+}
+
+          ')
+
+
+```
+
+```{r}
+library(microbenchmark)
+
+microbenchmark(t(x) %*% y, parallelInnerProduct(t(x) %*% y))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
