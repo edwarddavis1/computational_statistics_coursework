@@ -4,10 +4,72 @@ author: "Ed Davis"
 date: "26/04/2021"
 output: html_document
 ---
-
+=
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+
+## Using OpenMP in Rcpp
+
+OpenMP can be included in Rcpp through the use of `[[Rcpp::plugins(openmp)]]`, from here the syntax is the same as in OpenMP. This allows us to write Rcpp code very efficiently by utilising parallelisation. Consider the following code, where the program pauses for four seconds by looping a pause for one second, four times. When we use parallelisation, we set each core to do one loop each, meaning that four cores will each pause for a second simultaneously.   
+
+
+```{r}
+library(Rcpp)
+
+sourceCpp(code = '
+#include <unistd.h>
+#include <Rcpp.h>
+
+// [[Rcpp::plugins(openmp)]]
+
+// [[Rcpp::export(wait_a_second_omp)]]
+bool wait_a_second_omp(int sec, int ncores)
+{
+
+ #if defined(_OPENMP)
+  #pragma omp parallel num_threads(ncores)
+  #pragma omp for
+ #endif
+ for(size_t ii = 0; ii < sec; ii++)
+ { 
+  sleep(1);
+ }
+ 
+ return 1;
+
+ }
+')
+```
+
+```{r}
+# Non-Paralellised vs Parallelised
+system.time(wait_a_second_omp(4,1))[3]
+system.time(wait_a_second_omp(4,4))[3]
+```
+
+The speed up in this case is linear with the number of cores, which is expected. However, this isn't always the case. Certain functions fill cause negligible speed up with more cores (or even a reduced speed) if it casues the cores to compete for computational resources. 
+
+
+
+
+
+## Rcpp Parallel 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ## Setup 
 
